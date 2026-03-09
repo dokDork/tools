@@ -36,15 +36,14 @@ VSFTPD_CONF_BAK="/etc/vsftpd.conf.bak.$(date +%s)"
 PASV_MIN=10090
 PASV_MAX=10100
 
-# ---------- Rileva IP pubblico/locale ----------
-# Prova prima l'IP pubblico, poi fallback su IP locale
-log "Rilevamento indirizzo IP..."
-PUBLIC_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || true)
-if [[ -z "$PUBLIC_IP" ]]; then
-    warn "Impossibile ottenere IP pubblico, uso IP locale"
-    PUBLIC_IP=$(hostname -I | awk '{print $1}')
+# ---------- Stop servizio esistente ----------
+if systemctl is-active --quiet vsftpd; then
+    warn "Servizio vsftpd già attivo. Lo fermo prima di riconfigurare..."
+    systemctl stop vsftpd
+    log "vsftpd fermato."
+else
+    log "Nessun servizio vsftpd attivo, procedo con l'installazione."
 fi
-log "IP usato per PASV: ${PUBLIC_IP}"
 
 # ---------- Installazione vsftpd ----------
 log "Installazione vsftpd..."
@@ -74,11 +73,11 @@ allow_writeable_chroot=YES
 listen=YES
 listen_ipv6=NO
 
-# --- Passive mode ---
+# --- Passive mode (tutte le interfacce) ---
 pasv_enable=YES
 pasv_min_port=$PASV_MIN
 pasv_max_port=$PASV_MAX
-pasv_address=$PUBLIC_IP
+# pasv_address non impostato: vsftpd ascolta su tutte le interfacce
 
 # --- Sicurezza e log ---
 anonymous_enable=NO
@@ -145,10 +144,10 @@ echo ""
 echo -e "${GREEN}============================================${NC}"
 echo -e "${GREEN}  FTP Server pronto!${NC}"
 echo -e "${GREEN}============================================${NC}"
-echo -e "  Host (PASV addr) : ${YELLOW}${PUBLIC_IP}${NC}"
+echo -e "  Interfacce       : ${YELLOW}tutte (0.0.0.0)${NC}"
 echo -e "  Porta FTP        : ${YELLOW}21${NC}"
 echo -e "  Porte PASV       : ${YELLOW}${PASV_MIN}-${PASV_MAX}${NC}"
 echo -e "  Utente           : ${YELLOW}${FTP_USER}${NC}"
 echo -e "  Directory upload : ${YELLOW}${FTP_UPLOAD_DIR}${NC}"
-echo -e "  Connetti con     : ${YELLOW}ftp ${PUBLIC_IP}${NC}"
+echo -e "  Connetti con     : ${YELLOW}ftp <IP_KALI>${NC}"
 echo -e "${GREEN}============================================${NC}"
