@@ -1,3 +1,6 @@
+# To Stop SSH service
+# sudo systemctl stop ssh
+
 #!/bin/bash
 
 # Verifica esecuzione come root
