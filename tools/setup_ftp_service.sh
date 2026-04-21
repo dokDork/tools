@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # To Stop FTP service
 # sudo systemctl stop vsftpd
 
@@ -22,14 +24,90 @@ error()  { echo -e "${RED}[-]${NC} $1"; exit 1; }
 # ---------- Controllo root ----------
 [[ $EUID -ne 0 ]] && error "Esegui lo script come root: sudo $0 <username> <password>"
 
-# ---------- Parametri ----------
-if [[ $# -ne 2 ]]; then
-    echo "Uso: sudo $0 <username> <password>"
+# ---------- Controllo parametri con spiegazione dettagliata ----------
+if [[ $# -eq 0 ]]; then
+    echo -e "${RED}============================================${NC}"
+    echo -e "${RED}  ERRORE: Nessun parametro fornito!${NC}"
+    echo -e "${RED}============================================${NC}"
+    echo ""
+    echo -e "  Questo script richiede ${YELLOW}due parametri obbligatori${NC}:"
+    echo ""
+    echo -e "  ${YELLOW}1. <username>${NC}"
+    echo -e "     Il nome utente che verrà creato (o aggiornato)"
+    echo -e "     sul sistema per accedere al server FTP."
+    echo -e "     Esempio: ${GREEN}ftpuser${NC}"
+    echo ""
+    echo -e "  ${YELLOW}2. <password>${NC}"
+    echo -e "     La password associata all'utente FTP."
+    echo -e "     Usare una password robusta (min. 8 caratteri)."
+    echo -e "     Esempio: ${GREEN}MyS3cur3Pass!${NC}"
+    echo ""
+    echo -e "  ${YELLOW}Uso corretto:${NC}"
+    echo -e "     sudo $0 <username> <password>"
+    echo -e "     sudo $0 ftpuser MyS3cur3Pass!"
+    echo ""
+    exit 1
+
+elif [[ $# -eq 1 ]]; then
+    echo -e "${RED}============================================${NC}"
+    echo -e "${RED}  ERRORE: Parametro mancante!${NC}"
+    echo -e "${RED}============================================${NC}"
+    echo ""
+    echo -e "  Hai fornito solo ${YELLOW}1 parametro su 2${NC} richiesti."
+    echo ""
+    echo -e "  ${GREEN}Username ricevuto :${NC} '$1'"
+    echo -e "  ${RED}Password         :${NC} ✘ non fornita"
+    echo ""
+    echo -e "  ${YELLOW}Fornisci anche la password:${NC}"
+    echo -e "     sudo $0 $1 <password>"
+    echo ""
+    exit 1
+
+elif [[ $# -gt 2 ]]; then
+    echo -e "${RED}============================================${NC}"
+    echo -e "${RED}  ERRORE: Troppi parametri!${NC}"
+    echo -e "${RED}============================================${NC}"
+    echo ""
+    echo -e "  Hai fornito ${YELLOW}$# parametri${NC}, ma ne sono accettati solo ${YELLOW}2${NC}."
+    echo -e "  Attenzione: se la password contiene spazi, racchiudila tra virgolette."
+    echo ""
+    echo -e "  ${YELLOW}Uso corretto:${NC}"
+    echo -e "     sudo $0 <username> <password>"
+    echo -e "     sudo $0 ftpuser \"La Mia Password!\""
+    echo ""
     exit 1
 fi
 
 FTP_USER="$1"
 FTP_PASS="$2"
+
+# ---------- Validazione username ----------
+if [[ ! "$FTP_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+    echo -e "${RED}============================================${NC}"
+    echo -e "${RED}  ERRORE: Username non valido!${NC}"
+    echo -e "${RED}============================================${NC}"
+    echo ""
+    echo -e "  L'username ${YELLOW}'$FTP_USER'${NC} non è valido."
+    echo -e "  Regole per un username corretto:"
+    echo -e "    - Inizia con una lettera minuscola o underscore ( _ )"
+    echo -e "    - Contiene solo lettere minuscole, numeri, - oppure _"
+    echo -e "    - Lunghezza massima: 32 caratteri"
+    echo ""
+    exit 1
+fi
+
+# ---------- Validazione password (lunghezza minima) ----------
+if [[ ${#FTP_PASS} -lt 8 ]]; then
+    echo -e "${RED}============================================${NC}"
+    echo -e "${RED}  ERRORE: Password troppo corta!${NC}"
+    echo -e "${RED}============================================${NC}"
+    echo ""
+    echo -e "  La password deve contenere almeno ${YELLOW}8 caratteri${NC}."
+    echo -e "  Caratteri forniti: ${YELLOW}${#FTP_PASS}${NC}"
+    echo ""
+    exit 1
+fi
+
 CHROOT_LIST="/etc/vsftpd.chroot_list"
 VSFTPD_CONF="/etc/vsftpd.conf"
 VSFTPD_CONF_BAK="/etc/vsftpd.conf.bak.$(date +%s)"
@@ -104,15 +182,12 @@ log "Password impostata per '$FTP_USER'."
 # ---------- Chroot list ----------
 log "Aggiornamento $CHROOT_LIST..."
 touch "$CHROOT_LIST"
-# Aggiungi l'utente solo se non già presente
 grep -qxF "$FTP_USER" "$CHROOT_LIST" || echo "$FTP_USER" >> "$CHROOT_LIST"
 log "Utente '$FTP_USER' aggiunto a $CHROOT_LIST."
 
 # ---------- Home directory: permessi corretti per chroot ----------
-# vsftpd richiede che la home dell'utente NON sia scrivibile da altri
 chmod 755 "/home/$FTP_USER"
 
-# Crea una sottodirectory scrivibile dall'utente per gli upload
 FTP_UPLOAD_DIR="/home/$FTP_USER/upload"
 mkdir -p "$FTP_UPLOAD_DIR"
 chown "$FTP_USER":"$FTP_USER" "$FTP_UPLOAD_DIR"
