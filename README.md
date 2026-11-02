@@ -13,3 +13,6 @@ A small toolbox with very useful bashes for kali 2025.
 ## What’s Inside?
 - **setup_ssh_server.sh**: A bash script to activate the ssh service with a given user and password.
 - **setup_ftp_server.sh**: A bash script to activate the ftp service with a given user and password.
+
+---
+Author: Luigi Capuzzello (dokDork) · [Website](https://capuzzello.altervista.org/) · [LinkedIn](https://www.linkedin.com/in/luigi-capuzzello/)
